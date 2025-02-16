@@ -1,8 +1,12 @@
 import classNames from "classnames";
-import type { ButtonHTMLAttributes } from "react";
+import type {
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  InputHTMLAttributes,
+} from "react";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>{
-  isLoading?:boolean;
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  isLoading?: boolean;
 }
 
 export function Button({ children, className, ...props }: ButtonProps) {
@@ -39,9 +43,32 @@ export function DeleteButton({ className, isLoading, ...props }: ButtonProps) {
       className={classNames(
         "border-2 border-red-600",
         "hover:bg-red-600 hover:text-white",
-        isLoading?"border-x-red-400 text-red-400":"",
+        isLoading ? "border-x-red-400 text-red-400" : "",
         className
       )}
+    />
+  );
+}
+
+interface ErrorMessageProps extends HTMLAttributes<HTMLParagraphElement> {}
+
+export function ErrorMessage({ className, ...props }: ErrorMessageProps) {
+  return props.children ? (
+    <p {...props} className={classNames("text-red-600 text-xs", className)} />
+  ) : null;
+}
+
+interface PrimaryInputProps extends InputHTMLAttributes<HTMLInputElement> {}
+
+export function PrimaryInput({ className, ...props }: PrimaryInputProps) {
+  return (
+    <input
+      className={classNames(
+        "w-full outline-none border-2 border-gray-200 ",
+        "focus:border-primary rounded-md p-2",
+        className,
+      )}
+      {...props}
     />
   );
 }

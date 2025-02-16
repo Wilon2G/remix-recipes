@@ -7,8 +7,9 @@ import {
 } from "@remix-run/react";
 import classNames from "classnames";
 import { z } from "zod";
-import { DeleteButton, PrimaryButton } from "~/components/form";
-import { PlusIcon, SaveIcon, SearchIcon } from "~/components/icons";
+import { DeleteButton, ErrorMessage, PrimaryButton } from "~/components/form";
+import { PlusIcon, SaveIcon, SearchIcon, TrashIcon } from "~/components/icons";
+import { createShelfItem, deleteShelfItem } from "~/models/pantry-item.server";
 import {
   createShelf,
   deleteShelf,
@@ -25,14 +26,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 //==========ESQUEMA DE ZOD PARA VALIDAR LA ELIMINACIÓN DE SHELF=======
-const deleteShelfSchema=z.object({
+const deleteShelfSchema = z.object({
   shelfId: z.string(),
 });
 
 //==========ESQUEMA DE ZOD PARA VALIDAR EL CAMBIO DE NOMBRE DE SHELF=======
 const saveShelfNameSchema = z.object({
-  shelfName: z.string().min(1),
+  shelfName: z.string().min(1, "Shelf name cannot be blank"),
   shelfId: z.string(),
+});
+
+//==========ESQUEMA DE ZOD PARA VALIDAR LA CREACIÓN DE UN ITEM EN UNA SHELF=======
+const createShelfItemSchema = z.object({
+  itemName: z.string().min(1, "Item name cannot be blank"),
+  shelfId: z.string(),
+});
+
+//==========ESQUEMA DE ZOD PARA ELIMINAR UN ITEM DE SHELF=======
+const deleteShelfItemSchema = z.object({
+  itemId: z.string(),
 });
 
 export const action: ActionFunction = async ({ request }) => {
@@ -46,17 +58,33 @@ export const action: ActionFunction = async ({ request }) => {
       return validateForm(
         formData,
         deleteShelfSchema,
-        (data)=>deleteShelf(data.shelfId),
-        (errors)=>data({errors})
-      )
+        (data) => deleteShelf(data.shelfId),
+        (errors) => data({ errors }, { status: 400 })
+      );
     }
     case "saveShelfName": {
       return validateForm(
         formData,
         saveShelfNameSchema,
-        (data)=>saveShelfName(data.shelfId, data.shelfName),
-        (errors)=> data({errors})
-      )
+        (data) => saveShelfName(data.shelfId, data.shelfName),
+        (errors) => data({ errors }, { status: 400 })
+      );
+    }
+    case "createShelfItem": {
+      return validateForm(
+        formData,
+        createShelfItemSchema,
+        (data) => createShelfItem(data.shelfId, data.itemName),
+        (errors) => data({ errors }, { status: 400 })
+      );
+    }
+    case "deleteShelfItem": {
+      return validateForm(
+        formData,
+        deleteShelfItemSchema,
+        (data) => deleteShelfItem(data.itemId),
+        (errors) => data({ errors }, { status: 400 })
+      );
     }
 
     default:
@@ -133,11 +161,12 @@ type ShelfProps = {
 };
 
 //==========================================================
-//==================FUNCION SHELF============================
+//====================FUNCION SHELF============================
 //==========================================================
 function Shelf({ shelf }: ShelfProps) {
   const deleteShelfFetcher = useFetcher();
   const saveShelfNameFetcher = useFetcher();
+  const createShelfItemFetcher = useFetcher();
 
   const isDeletingShelf =
     deleteShelfFetcher.formData?.get("_action") === "deleteShelf" &&
@@ -152,32 +181,92 @@ function Shelf({ shelf }: ShelfProps) {
         "md:w-96"
       )}
     >
+      {/**=============FORM PARA GUARDAR EL NOMBRE DE UNA SHELF================ */}
       <saveShelfNameFetcher.Form method="POST" className="flex">
-        <input
-          type="text"
-          defaultValue={shelf.name}
-          className={classNames(
-            "text-2xl font-extrabold w-full outline-none",
-            "border-b-2 border-b-background focus:border-b-primary"
-          )}
-          name="shelfName"
-          placeholder="Shelf Name"
-          autoComplete="off"
-        />
+        <div className="w-full mb-2">
+          <input
+            type="text"
+            required
+            defaultValue={shelf.name}
+            className={classNames(
+              "text-2xl font-extrabold w-full outline-none",
+              "border-b-2 border-b-background focus:border-b-primary",
+              saveShelfNameFetcher.data?.errors?.shelfName
+                ? "border-b-red-600"
+                : ""
+            )}
+            onChange={(event) =>
+              event.target.value !== "" &&
+              saveShelfNameFetcher.submit(
+                {
+                  _action: "saveShelfName",
+                  shelfName: event.target.value,
+                  shelfId: shelf.id,
+                },
+                { method: "POST" }
+              )
+            }
+            name="shelfName"
+            placeholder="Shelf Name"
+            autoComplete="off"
+          />
+          <ErrorMessage className="pb-2">
+            {saveShelfNameFetcher.data?.errors?.shelfName}
+          </ErrorMessage>
+        </div>
         <button name="_action" value="saveShelfName" className="ml-4">
           <SaveIcon />
         </button>
         <input type="hidden" name="shelfId" value={shelf.id} />
       </saveShelfNameFetcher.Form>
 
+      {/**==============FORM PARA CREAR ITEM======================= */}
+      <createShelfItemFetcher.Form
+        reloadDocument
+        method="POST"
+        className="flex PY-2"
+      >
+        <div className="w-full mb-2">
+          <input
+            type="text"
+            className={classNames(
+              " w-full outline-none",
+              "border-b-2 border-b-background focus:border-b-primary",
+              createShelfItemFetcher.data?.errors?.itemName
+                ? "border-r-red-600"
+                : ""
+            )}
+            name="itemName"
+            placeholder="New Item"
+            required
+            autoComplete="off"
+          />
+          <ErrorMessage className="pb-2">
+            {createShelfItemFetcher.data?.errors?.itemName}
+          </ErrorMessage>
+        </div>
+
+        <button name="_action" value="createShelfItem" className="ml-4">
+          <SaveIcon />
+        </button>
+        <input type="hidden" name="shelfId" value={shelf.id} />
+      </createShelfItemFetcher.Form>
       <ul>
         {shelf.items.map((item) => (
-          <li key={item.id} className="py-2">
-            {item.name}
-          </li>
+          <ShelfItem key={item.id} shelfItem={item} />
         ))}
       </ul>
-      <deleteShelfFetcher.Form method="POST" className="pt-8">
+
+      {/**============FORM PARA ELIMINAR UNA SHELF ====================*/}
+      <deleteShelfFetcher.Form
+        method="POST"
+        className="pt-8"
+        onSubmit={(event) => {
+          if (!confirm("Are you sure you want to delete this shelf?")) {
+            event.preventDefault();
+          }
+        }}
+      >
         <input type="hidden" name="shelfId" value={shelf.id} />
         <DeleteButton
           className="w-full"
@@ -188,6 +277,38 @@ function Shelf({ shelf }: ShelfProps) {
           {isDeletingShelf ? "Deleting shelf..." : "Delete Shelf"}
         </DeleteButton>
       </deleteShelfFetcher.Form>
+    </li>
+  );
+}
+
+{
+  /**=====================FUNCION SHELF ITEM============= */
+}
+type ShelfItemProps = {
+  shelfItem: {
+    id: string;
+    name: string;
+  };
+};
+function ShelfItem({ shelfItem }: ShelfItemProps) {
+  const deleteFetchItemFetcher = useFetcher();
+  return (
+    <li className="py-2">
+      {/**===============FORMULARIO DE ELIMINACION DE ITEM============ */}
+      <deleteFetchItemFetcher.Form
+        method="POST"
+        className="flex"
+        reloadDocument
+      >
+        <p className="w-full">{shelfItem.name}</p>
+        <button name="_action" value="deleteShelfItem">
+          <TrashIcon />
+        </button>
+        <input type="hidden" name="itemId" value={shelfItem.id} />
+        <ErrorMessage className="pl-2">
+          {deleteFetchItemFetcher.data?.errors?.itemId}
+        </ErrorMessage>
+      </deleteFetchItemFetcher.Form>
     </li>
   );
 }

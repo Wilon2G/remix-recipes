@@ -18,6 +18,7 @@ import {
   BookIcon,
   DiscoverIcon,
   HomeIcon,
+  LoginIcon,
   SettingIcon,
 } from "./components/icons";
 import classNames from "classnames";
@@ -46,7 +47,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <>
-      <nav className="bg-primary text-white">
+      <nav className={classNames("bg-primary text-white",
+        "flex justify-between md:flex-col"
+      )}>
         <ul className="flex flex-col">
           <AppNavLink to="/">
             <HomeIcon />
@@ -62,6 +65,13 @@ export default function App() {
 
           <AppNavLink to="settings">
             <SettingIcon />
+          </AppNavLink>
+
+
+        </ul>
+        <ul>
+        <AppNavLink to="login">
+            <LoginIcon />
           </AppNavLink>
         </ul>
       </nav>
